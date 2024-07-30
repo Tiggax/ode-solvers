@@ -165,23 +165,46 @@ where
 
     /// Performs one step of the Runge-Kutta 4 method, but with mutable State.
     fn mut_step(&mut self) -> (T, OVector<T, D>, bool) {
-        self.f.mut_system(self.x, &mut self.y, &mut self.k[0]);
+
+        // this is a thesis specific solution and should only work for that occurance.
+        let mut y_inputs = Vec::new();
+        let mut y_in = self.y.clone();
+
+
+        self.f.mut_system(self.x, &mut y_in, &mut self.k[0]);
 
         self.populate_buffer(0, self.half_step);
+        y_inputs.push(y_in[5]);
+        let mut buf = self.buffer.clone();
         self.f
-            .mut_system(self.x + self.half_step, &mut self.buffer, &mut self.k[1]);
-
+            .mut_system(self.x + self.half_step, &mut buf, &mut self.k[1]);
+        y_inputs.push(buf[5]);
         self.populate_buffer(1, self.half_step);
+        let mut buf = self.buffer.clone();
         self.f
-            .mut_system(self.x + self.half_step, &mut self.buffer, &mut self.k[2]);
-
+            .mut_system(self.x + self.half_step, &mut buf, &mut self.k[2]);
+        y_inputs.push(buf[5]);
         self.populate_buffer(2, self.step_size);
+        let mut buf = self.buffer.clone();
         self.f
-            .mut_system(self.x + self.step_size, &mut self.buffer, &mut self.k[3]);
+            .mut_system(self.x + self.step_size, &mut buf, &mut self.k[3]);
+        y_inputs.push(buf[5]);
+
+        let mut cnt = 0.;
+        if y_inputs[0] != T::from(0.).unwrap() {cnt += 1. }
+        if y_inputs[1] != T::from(0.).unwrap() {cnt += 1. }
+        if y_inputs[2] != T::from(0.).unwrap() {cnt += 1. }
+        if y_inputs[3] != T::from(0.).unwrap() {cnt += 1. }
+
+        let median: T = (y_inputs[0] + y_inputs[1] + y_inputs[2] + y_inputs[3]) / T::from(cnt).unwrap();
 
         let x_new = self.x + self.step_size;
 
         let mut y_new = self.y.clone();
+
+        if cnt != 0. {
+            y_new[5] = median;
+        }
 
         for (idx, y_elem) in y_new.iter_mut().enumerate() {
             let two = T::from(2.).unwrap();
